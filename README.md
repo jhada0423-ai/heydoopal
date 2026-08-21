@@ -2,29 +2,44 @@
 
 > 음성 명령만으로 협동로봇(Doosan M0609)이 주변 사물을 탐색·파지해 시각장애인 사용자 손에 전달하는 Voice-to-Robot 보조 시스템 (4인 팀 프로젝트, 2026.07.16~2026.07.29)
 
-이 저장소는 팀 프로젝트 "Hey Doopal" 중 **로봇 제어 파트**(본인 직접 구현)를 담고 있다. 원본 팀 저장소: [sonnanlo2125-a11y/simbongsa](https://github.com/sonnanlo2125-a11y/simbongsa)
+이 저장소는 팀 프로젝트 "Hey Doopal"의 통합 코드베이스다. **로봇 제어(`src/robot_control`)와 음성 명령 처리(`src/voice_control`)는 본인이 직접 구현**했고, **Object/Hand Detection(`src/detection`)과 DB·UI(`src/ui_db`)는 팀원이 구현**한 코드를 프로젝트 전체 구조 이해를 돕기 위해 함께 포함했다. 원본 팀 저장소: [sonnanlo2125-a11y/simbongsa](https://github.com/sonnanlo2125-a11y/simbongsa) (브랜치별 팀원 작업 분리)
 
 ## Key Features
 
 - **능동형 재탐색 (Cone Scan)**: TCP를 고정한 채 Rx/Ry 8자세로 회전하며 물체를 재탐색하는 스캔 로직 — 1회 스캔에 물체가 탐지되지 않아도 포기하지 않고 다각도로 재시도
 - **ROS2 Action 기반 통신**: Goal-Feedback-Result 구조의 `FindOrder`/`FindTargetOrder` 커스텀 액션으로 로봇 제어 노드와 비전/DB 파트 간 비동기 통신을 처리
 - **Compliance/Force 기반 안전 파지**: 접촉력(|Fz|) 기준으로 파지 판정을 수행해 다양한 크기의 물체를 안전하게 그립
-- **음성 명령 처리(직접 구현, 별도 관리)**: WAKEUP/BUSY/CONFIRM/SLEEP 상태머신과 LangChain 기반 자연어 파라미터 추출, openWakeWord 커스텀 시동어 모델 — 해당 모듈 코드는 이 저장소에는 포함되어 있지 않음
+- **음성 명령 처리 (직접 구현)**: WAKEUP → BUSY → CONFIRM → SLEEP 상태머신, 커스텀 TFLite 웨이크워드 모델(`MicController`), STT + 자연어 파라미터 추출(`get_keyword`)로 로봇 제어 서버에 목표물/목적지를 전달
 
 ## System Architecture
 
-빨간색 박스가 본인이 직접 구현한 `robot_control` 파트다. 점선 박스는 팀원이 구현한 외부 노드(비전/DB/UI)와 이 저장소에는 포함되지 않은 음성 모듈로, `robot_control`이 서비스/액션 클라이언트로만 연결된다.
+빨간색 박스가 본인이 직접 구현한 `robot_control`·`voice_control` 파트다. 파란색 박스는 팀원이 구현한 `detection`·`ui_db` 파트로, 이번 정리에서 참고용으로 저장소에 함께 포함했다 (`src/` 이하 구조는 [Repository 구조](#repository-구조) 참고).
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Apple SD Gothic Neo, Malgun Gothic, sans-serif', 'fontSize': '14px', 'primaryTextColor': '#1a1a1a', 'lineColor': '#555555'}, 'flowchart': {'curve': 'basis', 'htmlLabels': true}}}%%
 flowchart LR
     classDef own fill:#FDECEC,stroke:#C24343,stroke-width:1.6px,color:#611E1E,rx:8,ry:8;
-    classDef ext fill:#ffffff,stroke:#999999,stroke-width:1.2px,color:#555555,stroke-dasharray: 4 3,rx:8,ry:8;
+    classDef team fill:#EAF2FB,stroke:#3B6EA5,stroke-width:1.6px,color:#1B3A5C,rx:8,ry:8;
     classDef infra fill:#F1F1F1,stroke:#5A5A5A,stroke-width:1.2px,color:#2B2B2B,rx:8,ry:8;
 
-    VOICE["🎙️ 음성/NLU 모듈<br/>(본인 구현이지만<br/>이 레포엔 미포함)"]:::ext
-    YOLO["👁️ YOLO 비전 노드<br/>(팀원 구현, 외부)"]:::ext
-    DBUI["🗄️ DB · UI<br/>(팀원 구현, 외부)"]:::ext
+    subgraph VOICE[" 🎙️  voice_control · 본인 직접 구현 "]
+        direction TB
+        MIC["MicController<br/>커스텀 TFLite 웨이크워드"]:::own
+        STT["stt.py / get_keyword.py<br/>STT + 파라미터 추출"]:::own
+        VSRV["robot_control_server<br/>WAKEUP→BUSY→CONFIRM→SLEEP"]:::own
+    end
+
+    subgraph DET[" 👁️  detection · 팀원 구현 "]
+        direction TB
+        OD["object_detection_node<br/>YOLO Bounding Box"]:::team
+        HD["hand_detection_node<br/>hand_tracking_node<br/>MediaPipe 3D 손 좌표"]:::team
+    end
+
+    subgraph DBUI[" 🗄️  ui_db · 팀원 구현 "]
+        direction TB
+        FLASK["app.py (Flask)<br/>redis_store"]:::team
+        BRIDGE["ros_object_bridge"]:::team
+    end
 
     subgraph CORE[" 🤖  robot_control · 본인 직접 구현 "]
         direction TB
@@ -35,13 +50,15 @@ flowchart LR
 
     ARM["🦾 Doosan M0609<br/>DSR_ROBOT2 API"]:::infra
 
-    VOICE -->|"/get_keyword (VoiceKeyword.srv)"| TSN
-    TSN -->|"/find_target_order, /find_hand_order<br/>(FindOrder action)"| YOLO
-    TSN -->|"/yolo_scan_request (ScanRequest)"| YOLO
-    TSN -->|"/grip_bounding_box (GripBoundingBox)"| YOLO
-    TSN -->|"/assistive/get_db_data (GetDbData)"| DBUI
+    VSRV -->|"/get_keyword (VoiceKeyword.srv)"| TSN
+    TSN -->|"/find_target_order, /find_hand_order<br/>(FindOrder action)"| OD
+    TSN -->|"/yolo_scan_request (ScanRequest)"| OD
+    TSN -->|"/grip_bounding_box (GripBoundingBox)"| OD
+    TSN -->|"/find_hand_order (FindOrder action)"| HD
+    TSN -->|"/assistive/get_db_data (GetDbData)"| FLASK
+    BRIDGE -.->|"인식 결과 동기화"| FLASK
     TSN --> CONE
-    CONE -->|"FindOrder action (동일 서버)"| YOLO
+    CONE -->|"FindOrder action (동일 서버)"| OD
     TSN --> GRIP
     TSN -->|"movel / task_compliance_ctrl"| ARM
 ```
@@ -58,7 +75,7 @@ flowchart TD
     classDef term fill:#000000,stroke:#000000,stroke-width:1.4px,color:#ffffff;
     classDef own fill:#f2f2f2,stroke:#000000,stroke-width:1.4px,color:#000000;
 
-    START(["음성 명령 인식<br/>(외부 음성 모듈)"]):::term
+    START(["음성 명령 인식<br/>(src/voice_control)"]):::term
     CALL["① /get_keyword 서비스 호출<br/>target, goal 전달"]:::proc
     ACCEPT["② command_callback<br/>즉시 accepted=True 반환<br/>실제 작업은 백그라운드 스레드로 위임"]:::own
     ISHAND{"③ goal이 비어있거나<br/>'hand'인가"}:::dec
@@ -123,17 +140,23 @@ flowchart TD
 | 언어 | Python |
 | 로봇 미들웨어 | ROS2 Humble (rclpy, Action/Service) |
 | 로봇 | Doosan Robotics M0609 (DR_init / DSR 제어 API) |
-| 통신 | 커스텀 ROS2 Action/Service (`hey_doopal_msg`) |
+| 음성 | 커스텀 TFLite 웨이크워드, STT, 자연어 파라미터 추출 |
+| 비전 (팀원) | YOLOv8, MediaPipe |
+| DB·UI (팀원) | Flask, Redis |
+| 통신 | 커스텀 ROS2 Action/Service (`hey_doopal_msg`, `od_msg`) |
 
 ## Repository 구조
 
 | 경로 | 설명 |
 |---|---|
-| `robot_control/robot_control/cone_scan.py` | Cone Scan 능동형 재탐색 로직 |
-| `robot_control/robot_control/test_robot_control3.py` | 로봇 제어 통합 노드 (최신 버전) |
-| `hey_doopal_msg/action/` | `FindOrder`, `FindTargetOrder` — 비전 탐색 결과를 주고받는 커스텀 Action |
-| `hey_doopal_msg/srv/` | `ScanRequest`, `GripBoundingBox`, `VoiceKeyword`, `GetDbData` — 파트 간 인터페이스 |
+| `src/robot_control/` | 로봇 제어 ROS2 Action Server — Cone Scan, 안전 파지, DSR 제어 (**본인 직접 구현**) |
+| `src/voice_control/` | 음성 명령 처리 — 웨이크워드, STT, 자연어 파라미터 추출, 상태머신 (**본인 직접 구현**) |
+| `src/hey_doopal_msg/` | 팀 공용 커스텀 ROS2 Action/Service 인터페이스 (`FindOrder`, `ScanRequest`, `GripBoundingBox`, `VoiceKeyword`, `GetDbData` 등) |
+| `src/detection/` | YOLO 물체 인식 · MediaPipe 손 추적 노드 (팀원 구현, 구조 이해를 위해 포함) |
+| `src/ui_db/` | Flask 기반 재고/이벤트 관리 웹 UI · Redis 연동 (팀원 구현, 구조 이해를 위해 포함) |
+
+> `src/detection/`, `src/ui_db/` 는 팀원이 구현했으며, 학습된 YOLO 가중치(`.pt`) 등 대용량 바이너리는 포함하지 않았다. 전체 팀원별 원본 브랜치는 [원본 팀 저장소](https://github.com/sonnanlo2125-a11y/simbongsa/branches/all)에서 확인할 수 있다.
 
 ## 담당 파트
 
-본 프로젝트는 4인 팀 프로젝트다. 음성 인식(자연어 명령 처리)과 로봇 제어(본 저장소)는 본인이 직접 구현했고, Object Detection(YOLO 기반 비전 인식)과 DB·UI(손 추적·웹 인터페이스)는 팀원이 담당했다.
+본 프로젝트는 4인 팀 프로젝트다. **음성 인식(자연어 명령 처리)과 로봇 제어**는 본인이 직접 구현했고 (`src/robot_control`, `src/voice_control`), **Object Detection(YOLO 기반 비전 인식)과 DB·UI(손 추적·웹 인터페이스)**는 팀원이 담당했다 (`src/detection`, `src/ui_db`).
