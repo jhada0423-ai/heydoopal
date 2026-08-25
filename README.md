@@ -16,7 +16,7 @@
 빨간색 박스가 본인이 직접 구현한 `robot_control`·`voice_control` 파트다. 파란색 박스는 팀원이 구현한 `detection`·`ui_db` 파트로, 이번 정리에서 참고용으로 저장소에 함께 포함했다 (`src/` 이하 구조는 [Repository 구조](#repository-구조) 참고).
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'fontFamily': 'Apple SD Gothic Neo, Malgun Gothic, sans-serif', 'fontSize': '14px', 'primaryTextColor': '#1a1a1a', 'lineColor': '#555555'}, 'flowchart': {'curve': 'basis', 'htmlLabels': true}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff', 'fontFamily': 'Apple SD Gothic Neo, Malgun Gothic, sans-serif', 'fontSize': '14px', 'primaryTextColor': '#1a1a1a', 'lineColor': '#555555'}, 'flowchart': {'curve': 'basis', 'htmlLabels': true}}}%%
 flowchart LR
     classDef own fill:#FDECEC,stroke:#C24343,stroke-width:1.6px,color:#611E1E,rx:8,ry:8;
     classDef team fill:#EAF2FB,stroke:#3B6EA5,stroke-width:1.6px,color:#1B3A5C,rx:8,ry:8;
@@ -68,7 +68,7 @@ flowchart LR
 ### A. 음성 명령 → 물체 탐색·파지 → 전달
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#ffffff', 'primaryBorderColor': '#000000', 'primaryTextColor': '#000000', 'lineColor': '#000000', 'edgeLabelBackground':'#ffffff'}, 'flowchart': {'curve': 'linear'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff', 'primaryColor': '#ffffff', 'primaryBorderColor': '#000000', 'primaryTextColor': '#000000', 'lineColor': '#000000', 'edgeLabelBackground':'#ffffff'}, 'flowchart': {'curve': 'linear'}}}%%
 flowchart TD
     classDef proc fill:#ffffff,stroke:#000000,stroke-width:1.4px,color:#000000;
     classDef dec fill:#ffffff,stroke:#000000,stroke-width:1.4px,color:#000000;
@@ -107,7 +107,7 @@ flowchart TD
 ### B. Cone Scan 능동형 재탐색 상세
 
 ```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#ffffff', 'primaryBorderColor': '#000000', 'primaryTextColor': '#000000', 'lineColor': '#000000', 'edgeLabelBackground':'#ffffff'}, 'flowchart': {'curve': 'linear'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff', 'primaryColor': '#ffffff', 'primaryBorderColor': '#000000', 'primaryTextColor': '#000000', 'lineColor': '#000000', 'edgeLabelBackground':'#ffffff'}, 'flowchart': {'curve': 'linear'}}}%%
 flowchart TD
     classDef proc fill:#ffffff,stroke:#000000,stroke-width:1.4px,color:#000000;
     classDef dec fill:#ffffff,stroke:#000000,stroke-width:1.4px,color:#000000;
